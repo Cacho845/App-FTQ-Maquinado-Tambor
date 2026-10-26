@@ -33,7 +33,7 @@ INSPECTORES = [
     "Seleccionar...",
     "Eladio García",
     "Valeria Neria",
-    "Sebastián",
+    "Sebastián Rosales",
     "Armando Rosales",
     "Alexis Hernández",
     "Itzel Juárez",
