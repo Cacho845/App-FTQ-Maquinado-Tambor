@@ -231,8 +231,8 @@ if modelos_seleccionados:
                     "Pzas_x_Pallet": cap_pzas,
                     "Tarimas": t_paso1,
                     "Total_Piezas": t_paso1 * cap_pzas,
-                    "Cod_Defecto": "N/A",
-                    "Descripcion_Defecto": "N/A"
+                    "Descripcion_Defecto": "N/A",
+                    "Cod_Defecto": "N/A"
                 })
 
             # 2. Generar fila para Aceptadas en 2da Revisión
@@ -246,11 +246,11 @@ if modelos_seleccionados:
                     "Pzas_x_Pallet": cap_pzas,
                     "Tarimas": t_paso2,
                     "Total_Piezas": t_paso2 * cap_pzas,
-                    "Cod_Defecto": "N/A",
-                    "Descripcion_Defecto": "N/A"
+                    "Descripcion_Defecto": "N/A",
+                    "Cod_Defecto": "N/A"
                 })
 
-            # 3. Generar UNA FILA INDIVIDUAL POR CADA TARIMA RECHAZADA (Separa código numérico y descripción)
+            # 3. Generar UNA FILA INDIVIDUAL POR CADA TARIMA RECHAZADA
             if t_rech > 0:
                 for cod in codigos_defectos_list:
                     cod_num = cod if cod else "Sin seleccionar"
@@ -264,8 +264,8 @@ if modelos_seleccionados:
                         "Pzas_x_Pallet": cap_pzas,
                         "Tarimas": 1,
                         "Total_Piezas": cap_pzas,
-                        "Cod_Defecto": cod_num,
-                        "Descripcion_Defecto": desc_def
+                        "Descripcion_Defecto": desc_def,
+                        "Cod_Defecto": cod_num
                     })
 
     # 4. RESUMEN Y GUARDADO
@@ -300,8 +300,8 @@ if modelos_seleccionados:
                         r["Pzas_x_Pallet"],
                         r["Tarimas"],
                         r["Total_Piezas"],
-                        r["Cod_Defecto"],
-                        r["Descripcion_Defecto"]
+                        r["Descripcion_Defecto"],
+                        r["Cod_Defecto"]
                     ]
                     filas_insertar.append(fila)
 
