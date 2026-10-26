@@ -231,7 +231,8 @@ if modelos_seleccionados:
                     "Pzas_x_Pallet": cap_pzas,
                     "Tarimas": t_paso1,
                     "Total_Piezas": t_paso1 * cap_pzas,
-                    "Codigo_Defecto": "N/A"
+                    "Cod_Defecto": "N/A",
+                    "Descripcion_Defecto": "N/A"
                 })
 
             # 2. Generar fila para Aceptadas en 2da Revisión
@@ -245,13 +246,15 @@ if modelos_seleccionados:
                     "Pzas_x_Pallet": cap_pzas,
                     "Tarimas": t_paso2,
                     "Total_Piezas": t_paso2 * cap_pzas,
-                    "Codigo_Defecto": "N/A"
+                    "Cod_Defecto": "N/A",
+                    "Descripcion_Defecto": "N/A"
                 })
 
-            # 3. Generar UNA FILA INDIVIDUAL POR CADA TARIMA RECHAZADA
+            # 3. Generar UNA FILA INDIVIDUAL POR CADA TARIMA RECHAZADA (Separa código numérico y descripción)
             if t_rech > 0:
                 for cod in codigos_defectos_list:
-                    def_texto = f"{cod} - {DEFECTOS_OP60[cod]}" if cod in DEFECTOS_OP60 else "Sin seleccionar"
+                    cod_num = cod if cod else "Sin seleccionar"
+                    desc_def = DEFECTOS_OP60.get(cod, "Sin seleccionar") if cod else "Sin seleccionar"
                     registros_capturados.append({
                         "Fecha": fecha_reg,
                         "Turno": turno_reg,
@@ -261,7 +264,8 @@ if modelos_seleccionados:
                         "Pzas_x_Pallet": cap_pzas,
                         "Tarimas": 1,
                         "Total_Piezas": cap_pzas,
-                        "Codigo_Defecto": def_texto
+                        "Cod_Defecto": cod_num,
+                        "Descripcion_Defecto": desc_def
                     })
 
     # 4. RESUMEN Y GUARDADO
@@ -269,7 +273,7 @@ if modelos_seleccionados:
     st.subheader("4. Confirmar y Registrar en Google Sheets")
 
     defectos_pendientes = any(
-        r["Estatus"] == "Rechazado" and r["Codigo_Defecto"] == "Sin seleccionar" 
+        r["Estatus"] == "Rechazado" and (r["Cod_Defecto"] == "Sin seleccionar" or r["Descripcion_Defecto"] == "Sin seleccionar")
         for r in registros_capturados
     )
 
@@ -296,7 +300,8 @@ if modelos_seleccionados:
                         r["Pzas_x_Pallet"],
                         r["Tarimas"],
                         r["Total_Piezas"],
-                        r["Codigo_Defecto"]
+                        r["Cod_Defecto"],
+                        r["Descripcion_Defecto"]
                     ]
                     filas_insertar.append(fila)
 
