@@ -43,24 +43,50 @@ INSPECTORES = [
 
 # Códigos de defecto para última operación (16xx Fundición / 26xx Maquinado)
 DEFECTOS_OP60 = {
-    "1601 / 2601": "Marca de pintura (Molde de fundición)",
-    "1602 / 2602": "Fracturas/Uniones",
-    "1603 / 2603": "Rechupes",
-    "1604 / 2604": "Falta de material",
-    "1605 / 2605": "Inclusión escoria",
-    "1607 / 2607": "Golpes",
-    "1610 / 2610": "Inclusión de arena",
-    "1618 / 2618": "Ovalamiento / Conicidad",
-    "1621 / 2621": "Golpes / incrustación",
-    "1625 / 2625": "Runout",
-    "1626 / 2626": "Falla en balanceo por peso (sin corte)",
-    "1627 / 2627": "Falla en balanceo por peso (con corte)",
-    "1632 / 2632": "Vibración / Rugosidad",
-    "1635 / 2635": "Posición de barrenos NG",
-    "1636 / 2636": "Altura fuera de especificación",
-    "1639 / 2639": "Rayas en pista",
-    "1641 / 2641": "Oxido",
-    "1646 / 2646": "Falla en pintura"
+    "1601": "Marca de pintura (Molde de fundición)",
+    "1602": "Fracturas/Uniones",
+    "1603": "Rechupes",
+    "1604": "Falta de material",
+    "1605": "Inclusión escoria",
+    "1606": "Erosión",
+    "1607": "Golpes",
+    "1608": "Leyendas incompletas o faltantes",
+    "1609": "Gas",
+    "1610": "Inclusión de arena",
+    "1611": "Exceso de material",
+    "1612": "Esmerilado sin granallar",
+    "2613": "Caída",
+    "2614": "Piloto cerrado",
+    "2615": "Piloto abierto",
+    "2616": "Pista cerrada",
+    "2617": "Pista abierta",
+    "2618": "Ovalamiento / Conicidad",
+    "2619": "Espesor de brida",
+    "2620": "Ajuste por ingeniería",
+    "2621": "Golpes / incrustación",
+    "2622": "Marcaje de fecha juliana incorrecto",
+    "2623": "Cinturón abierto",
+    "2624": "Cinturón cerrado",
+    "2642": "Runout",
+    "1626": "Falla en balanceo por peso (sin corte)",
+    "2627": "Falla en balanceo por peso (con corte)",
+    "2628": "Profundidad de corte en balanceo",
+    "2629": "Corte con escalón o mayor a 120°",
+    "2630": "Doble corte en balanceo ≠ 180°",
+    "2631": "Falla en ajuste",
+    "2632": "Vibración / Rugosidad",
+    "2633": "Barrenado incompleto",
+    "2634": "Diámetro de ranura fuera de especificación",
+    "2635": "Posición de barrenos NG",
+    "2636": "Altura fuera de especificación",
+    "2637": "Inserto roto",
+    "2638": "Falla en chaflán",
+    "2639": "Rayas en pista",
+    "2640": "Rayas en brida",
+    "2641": "Oxido",
+    "2644": "Falla en balanceo TRU TURN",
+    "2645": "Pieza sin estatus",
+    "2646": "Falla en pintura"
 }
 
 def obtener_fecha_y_turno_auto():
@@ -136,7 +162,11 @@ if modo_tiempo == "⚡ Automático (Ahora)":
 else:
     col_f, col_t = st.columns(2)
     with col_f:
-        fecha_input = st.date_input("Fecha de Inspección", value=datetime.now(ZONA_HORARIA_MX), format="DD/MM/YYYY")
+        fecha_input = st.date_input(
+            "Fecha de Inspección", 
+            value=datetime.now(ZONA_HORARIA_MX),
+            format="DD/MM/YYYY"
+        )
         fecha_reg = fecha_input.strftime("%d/%m/%Y") # Formato DD/MM/YYYY
     with col_t:
         turno_reg = st.selectbox("Turno", ["1", "2", "3"])
@@ -192,7 +222,7 @@ if modelos_seleccionados:
                         key=f"def_{modelo}_{i}"
                     )
                     if cod_def:
-                        codigos_defectos_list.append(cod_def)
+                        codigos_defectos_list.append(f"{cod_def} ({DEFECTOS_OP60[cod_def]})")
 
             # Cálculos automáticos de piezas
             pzas_paso1 = t_paso1 * cap_pzas
