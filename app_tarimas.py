@@ -133,7 +133,7 @@ if modo_tiempo == "⚡ Automático (Ahora)":
 else:
     col_f, col_t = st.columns(2)
     with col_f:
-        fecha_input = st.date_input("Fecha de Inspección", value=datetime.now(ZONA_HORARIA_MX))
+        fecha_input = st.date_input("Fecha de Inspección", value=datetime.now(ZONA_HORARIA_MX), format="DD/MM/YYYY")
         fecha_reg = fecha_input.strftime("%d/%m/%Y") # Formato DD/MM/YYYY
     with col_t:
         turno_reg = st.selectbox("Turno", ["1", "2", "3"])
