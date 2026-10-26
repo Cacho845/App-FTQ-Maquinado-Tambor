@@ -3,12 +3,16 @@ import pandas as pd
 import json
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime, time as dtime
+from datetime import datetime, time as dtime, timedelta
+from zoneinfo import ZoneInfo
 
 # =========================================================
 # CONFIGURACIÓN Y CATÁLOGOS DE PLANTA
 # =========================================================
 st.set_page_config(page_title="Liberación de Tarimas", page_icon="📦", layout="centered")
+
+# Zona horaria oficial para Pachuca, Hidalgo
+ZONA_HORARIA_MX = ZoneInfo("America/Mexico_City")
 
 # Capacidad fija de piezas por pallet por modelo
 CAPACIDAD_PALLET = {
@@ -26,13 +30,12 @@ CAPACIDAD_PALLET = {
 }
 
 INSPECTORES = [
+    "Seleccionar...",
     "Armando Rosales",
-    "Alexis Hernández",
-    "Itzel Juárez",
-    "Berenice Hernández",
-    "Eladio",
-    "Valeria Neria",
-    "Sebastián"
+    "Juan Pérez",
+    "Carlos López",
+    "Inspector 3",
+    "Otro"
 ]
 
 # Códigos de defecto para última operación (16xx Fundición / 26xx Maquinado)
@@ -57,14 +60,30 @@ DEFECTOS_OP60 = {
     "1646 / 2646": "Falla en pintura"
 }
 
-def calcular_turno_actual():
-    hora_actual = datetime.now().time()
-    if dtime(6, 0) <= hora_actual < dtime(14, 30):
-        return "1"
-    elif dtime(14, 30) <= hora_actual < dtime(22, 30):
-        return "2"
+def obtener_fecha_y_turno_auto():
+    ahora = datetime.now(ZONA_HORARIA_MX)
+    hora_actual = ahora.time()
+    
+    # REGLA DÍA OPERATIVO: De 00:00 a 08:59 hrs la fecha pertenece al día operativo anterior
+    if hora_actual < dtime(9, 0):
+        fecha_dt = ahora - timedelta(days=1)
     else:
-        return "3"
+        fecha_dt = ahora
+        
+    fecha_formateada = fecha_dt.strftime("%d/%m/%Y") # Formato DD/MM/YYYY
+    
+    # REGLA DE TURNO CON VENTANA DE TOLERANCIA (2 horas extras al final de cada turno)
+    # Turno 1 (07:00 a 15:00) -> Capturas de 09:00 a 17:00 hrs
+    if dtime(9, 0) <= hora_actual < dtime(17, 0):
+        turno = "1"
+    # Turno 2 (15:00 a 22:30) -> Capturas de 17:00 a 00:30 hrs
+    elif dtime(17, 0) <= hora_actual or hora_actual < dtime(0, 30):
+        turno = "2"
+    # Turno 3 (22:30 a 07:00) -> Capturas de 00:30 a 09:00 hrs
+    else:
+        turno = "3"
+        
+    return fecha_formateada, turno
 
 # =========================================================
 # CONEXIÓN A GOOGLE SHEETS
@@ -92,7 +111,7 @@ except Exception as e:
 st.title("📦 Registro de Liberación de Tarimas")
 st.caption("Captura rápida para inspectores de calidad")
 
-# 1. DATOS DEL INSPECTOR Y TIEMPO
+# 1. INFORMACIÓN GENERAL
 st.subheader("1. Información General")
 
 col_insp, col_modo = st.columns(2)
@@ -109,15 +128,15 @@ with col_modo:
     )
 
 if modo_tiempo == "⚡ Automático (Ahora)":
-    fecha_reg = datetime.now().strftime("%Y-%m-%d")
-    turno_reg = calcular_turno_actual()
-    st.info(f"📅 **Fecha:** `{fecha_reg}` | 🕒 **Turno Detectado:** `{turno_reg}`")
+    fecha_reg, turno_reg = obtener_fecha_y_turno_auto()
+    st.info(f"📅 **Fecha Operativa:** `{fecha_reg}` | 🕒 **Turno Detectado:** `{turno_reg}`")
 else:
     col_f, col_t = st.columns(2)
     with col_f:
-        fecha_reg = st.date_input("Fecha de Inspección", value=datetime.now()).strftime("%Y-%m-%d")
+        fecha_input = st.date_input("Fecha de Inspección", value=datetime.now(ZONA_HORARIA_MX))
+        fecha_reg = fecha_input.strftime("%d/%m/%Y") # Formato DD/MM/YYYY
     with col_t:
-        turno_reg = st.selectbox("Turno", ["1", "2", "3", "4", "5", "6"])
+        turno_reg = st.selectbox("Turno", ["1", "2", "3"])
 
 st.divider()
 
@@ -209,12 +228,15 @@ if modelos_seleccionados:
         st.error("⚠️ Por favor selecciona tu nombre de inspector en la Sección 1 antes de guardar.")
     else:
         df_resumen = pd.DataFrame(registros_capturados)
-        st.dataframe(df_resumen[["#Parte", "Total_Tarimas", "Total_Piezas", "Tarimas_1ra_Pass", "Tarimas_2da_Pass", "Tarimas_Rechazadas", "Codigos_Defectos"]], use_container_width=True)
+        st.dataframe(
+            df_resumen[["#Parte", "Total_Tarimas", "Total_Piezas", "Tarimas_1ra_Pass", "Tarimas_2da_Pass", "Tarimas_Rechazadas", "Codigos_Defectos"]], 
+            use_container_width=True
+        )
 
         if st.button("🚀 Registrar Liberaciones", type="primary", use_container_width=True):
             try:
                 filas_insertar = []
-                timestamp_ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                timestamp_ahora = datetime.now(ZONA_HORARIA_MX).strftime("%d/%m/%Y %H:%M:%S")
 
                 for r in registros_capturados:
                     fila = [
@@ -239,6 +261,5 @@ if modelos_seleccionados:
                 sheet.append_rows(filas_insertar)
                 st.balloons()
                 st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
-                st.empty()
             except Exception as e:
                 st.error(f"Error al guardar los datos: {e}")
