@@ -1,0 +1,244 @@
+import streamlit as st
+import pandas as pd
+import json
+import gspread
+from google.oauth2.service_account import Credentials
+from datetime import datetime, time as dtime
+
+# =========================================================
+# CONFIGURACIÓN Y CATÁLOGOS DE PLANTA
+# =========================================================
+st.set_page_config(page_title="Liberación de Tarimas", page_icon="📦", layout="centered")
+
+# Capacidad fija de piezas por pallet por modelo
+CAPACIDAD_PALLET = {
+    "107150": 20,
+    "107453": 20,
+    "107193": 19,
+    "107638": 15,
+    "107164": 25,
+    "10130750": 20,
+    "10130754": 25,
+    "10130748": 20,
+    "10130746": 15,
+    "10130752": 19,
+    "M0304": 20
+}
+
+INSPECTORES = [
+    "Armando Rosales",
+    "Alexis Hernández",
+    "Itzel Juárez",
+    "Berenice Hernández",
+    "Eladio",
+    "Valeria Neria",
+    "Sebastián"
+]
+
+# Códigos de defecto para última operación (16xx Fundición / 26xx Maquinado)
+DEFECTOS_OP60 = {
+    "1601 / 2601": "Marca de pintura (Molde de fundición)",
+    "1602 / 2602": "Fracturas/Uniones",
+    "1603 / 2603": "Rechupes",
+    "1604 / 2604": "Falta de material",
+    "1605 / 2605": "Inclusión escoria",
+    "1607 / 2607": "Golpes",
+    "1610 / 2610": "Inclusión de arena",
+    "1618 / 2618": "Ovalamiento / Conicidad",
+    "1621 / 2621": "Golpes / incrustación",
+    "1625 / 2625": "Runout",
+    "1626 / 2626": "Falla en balanceo por peso (sin corte)",
+    "1627 / 2627": "Falla en balanceo por peso (con corte)",
+    "1632 / 2632": "Vibración / Rugosidad",
+    "1635 / 2635": "Posición de barrenos NG",
+    "1636 / 2636": "Altura fuera de especificación",
+    "1639 / 2639": "Rayas en pista",
+    "1641 / 2641": "Oxido",
+    "1646 / 2646": "Falla en pintura"
+}
+
+def calcular_turno_actual():
+    hora_actual = datetime.now().time()
+    if dtime(6, 0) <= hora_actual < dtime(14, 30):
+        return "1"
+    elif dtime(14, 30) <= hora_actual < dtime(22, 30):
+        return "2"
+    else:
+        return "3"
+
+# =========================================================
+# CONEXIÓN A GOOGLE SHEETS
+# =========================================================
+try:
+    SPREADSHEET_ID_TARIMAS = st.secrets["SPREADSHEET_ID_TARIMAS"]
+    gcp_data = st.secrets["GCP_SERVICE_ACCOUNT"]
+    
+    if isinstance(gcp_data, str):
+        GCP_CREDS = json.loads(gcp_data)
+    else:
+        GCP_CREDS = dict(gcp_data)
+
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    credentials = Credentials.from_service_account_info(GCP_CREDS, scopes=scopes)
+    gc = gspread.authorize(credentials)
+    sheet = gc.open_by_key(SPREADSHEET_ID_TARIMAS).sheet1
+except Exception as e:
+    st.error(f"⚠️ Error al conectar con Google Sheets: {e}")
+    st.stop()
+
+# =========================================================
+# INTERFAZ DE USUARIO
+# =========================================================
+st.title("📦 Registro de Liberación de Tarimas")
+st.caption("Captura rápida para inspectores de calidad")
+
+# 1. DATOS DEL INSPECTOR Y TIEMPO
+st.subheader("1. Información General")
+
+col_insp, col_modo = st.columns(2)
+with col_insp:
+    inspector = st.selectbox("Inspector de Calidad", INSPECTORES)
+    if inspector == "Otro":
+        inspector = st.text_input("Escribe tu nombre:")
+
+with col_modo:
+    modo_tiempo = st.radio(
+        "Modo Fecha y Turno:",
+        ["⚡ Automático (Ahora)", "✏️ Manual (Extemporáneo)"],
+        horizontal=True
+    )
+
+if modo_tiempo == "⚡ Automático (Ahora)":
+    fecha_reg = datetime.now().strftime("%Y-%m-%d")
+    turno_reg = calcular_turno_actual()
+    st.info(f"📅 **Fecha:** `{fecha_reg}` | 🕒 **Turno Detectado:** `{turno_reg}`")
+else:
+    col_f, col_t = st.columns(2)
+    with col_f:
+        fecha_reg = st.date_input("Fecha de Inspección", value=datetime.now()).strftime("%Y-%m-%d")
+    with col_t:
+        turno_reg = st.selectbox("Turno", ["1", "2", "3", "4", "5", "6"])
+
+st.divider()
+
+# 2. SELECCIÓN DE MODELOS LIBERADOS
+st.subheader("2. Selecciona los Números de Parte Inspeccionados")
+modelos_seleccionados = st.multiselect(
+    "Puedes elegir varios modelos a la vez:",
+    options=list(CAPACIDAD_PALLET.keys()),
+    placeholder="Haz clic aquí para seleccionar los números de parte..."
+)
+
+# 3. CAPTURA DETALLADA POR MODELO
+registros_capturados = []
+
+if modelos_seleccionados:
+    st.divider()
+    st.subheader("3. Conteo de Tarimas por Modelo")
+
+    for modelo in modelos_seleccionados:
+        cap_pzas = CAPACIDAD_PALLET[modelo]
+        
+        with st.expander(f"📌 **Modelo #{modelo}** ({cap_pzas} pzas/pallet)", expanded=True):
+            col_t1, col_t2, col_t3 = st.columns(3)
+            
+            with col_t1:
+                t_paso1 = st.number_input(
+                    f"Tarimas Pasaron 1ra Rev. ({modelo})",
+                    min_value=0, value=0, step=1, key=f"t1_{modelo}"
+                )
+            with col_t2:
+                t_paso2 = st.number_input(
+                    f"Tarimas Pasaron 2da Rev. ({modelo})",
+                    min_value=0, value=0, step=1, key=f"t2_{modelo}"
+                )
+            with col_t3:
+                t_rech = st.number_input(
+                    f"Tarimas Rechazadas 1ra Rev. ({modelo})",
+                    min_value=0, value=0, step=1, key=f"tr_{modelo}"
+                )
+
+            # Desglose de defectos para tarimas rechazadas
+            codigos_defectos_list = []
+            if t_rech > 0:
+                st.warning(f"⚠️ Asigna el código de defecto para las **{t_rech}** tarima(s) rechazada(s):")
+                for i in range(1, t_rech + 1):
+                    cod_def = st.selectbox(
+                        f"Código de Defecto - Tarima Rechazada #{i} ({modelo})",
+                        options=[""] + list(DEFECTOS_OP60.keys()),
+                        format_func=lambda x: f"{x} - {DEFECTOS_OP60[x]}" if x in DEFECTOS_OP60 else "Selecciona defecto...",
+                        key=f"def_{modelo}_{i}"
+                    )
+                    if cod_def:
+                        codigos_defectos_list.append(cod_def)
+
+            # Cálculos automáticos de piezas
+            pzas_paso1 = t_paso1 * cap_pzas
+            pzas_paso2 = t_paso2 * cap_pzas
+            pzas_rech = t_rech * cap_pzas
+            total_tarimas = t_paso1 + t_paso2 + t_rech
+            total_piezas = total_tarimas * cap_pzas
+
+            st.caption(
+                f"📊 **Resumen {modelo}:** {total_tarimas} tarimas equivalen a **{total_piezas} pzas** "
+                f"({pzas_paso1} pzas 1ra rev | {pzas_paso2} pzas 2da rev | {pzas_rech} pzas rechazadas)"
+            )
+
+            registros_capturados.append({
+                "Fecha": fecha_reg,
+                "Turno": turno_reg,
+                "Inspector": inspector,
+                "#Parte": modelo,
+                "Pzas_x_Pallet": cap_pzas,
+                "Tarimas_1ra_Pass": t_paso1,
+                "Pzas_1ra_Pass": pzas_paso1,
+                "Tarimas_2da_Pass": t_paso2,
+                "Pzas_2da_Pass": pzas_paso2,
+                "Tarimas_Rechazadas": t_rech,
+                "Pzas_Rechazadas": pzas_rech,
+                "Total_Tarimas": total_tarimas,
+                "Total_Piezas": total_piezas,
+                "Codigos_Defectos": ", ".join(codigos_defectos_list) if codigos_defectos_list else "N/A"
+            })
+
+    # 4. RESUMEN Y GUARDADO
+    st.divider()
+    st.subheader("4. Confirmar y Registrar en Google Sheets")
+
+    if inspector == "Seleccionar..." or not inspector.strip():
+        st.error("⚠️ Por favor selecciona tu nombre de inspector en la Sección 1 antes de guardar.")
+    else:
+        df_resumen = pd.DataFrame(registros_capturados)
+        st.dataframe(df_resumen[["#Parte", "Total_Tarimas", "Total_Piezas", "Tarimas_1ra_Pass", "Tarimas_2da_Pass", "Tarimas_Rechazadas", "Codigos_Defectos"]], use_container_width=True)
+
+        if st.button("🚀 Registrar Liberaciones", type="primary", use_container_width=True):
+            try:
+                filas_insertar = []
+                timestamp_ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                for r in registros_capturados:
+                    fila = [
+                        r["Fecha"],
+                        r["Turno"],
+                        r["Inspector"],
+                        r["#Parte"],
+                        r["Pzas_x_Pallet"],
+                        r["Tarimas_1ra_Pass"],
+                        r["Pzas_1ra_Pass"],
+                        r["Tarimas_2da_Pass"],
+                        r["Pzas_2da_Pass"],
+                        r["Tarimas_Rechazadas"],
+                        r["Pzas_Rechazadas"],
+                        r["Total_Tarimas"],
+                        r["Total_Piezas"],
+                        r["Codigos_Defectos"],
+                        timestamp_ahora
+                    ]
+                    filas_insertar.append(fila)
+
+                sheet.append_rows(filas_insertar)
+                st.balloons()
+                st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
+                st.empty()
+            except Exception as e:
+                st.error(f"Error al guardar los datos: {e}")
