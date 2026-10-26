@@ -101,14 +101,11 @@ def obtener_fecha_y_turno_auto():
         
     fecha_formateada = fecha_dt.strftime("%d/%m/%Y") # Formato DD/MM/YYYY
     
-    # REGLA DE TURNO CON VENTANA DE TOLERANCIA (2 horas extras al final de cada turno)
-    # Turno 1 (07:00 a 15:00) -> Capturas de 09:00 a 17:00 hrs
+    # REGLA DE TURNO CON VENTANA DE TOLERANCIA
     if dtime(9, 0) <= hora_actual < dtime(17, 0):
         turno = "1"
-    # Turno 2 (15:00 a 22:30) -> Capturas de 17:00 a 00:30 hrs
     elif dtime(17, 0) <= hora_actual or hora_actual < dtime(0, 30):
         turno = "2"
-    # Turno 3 (22:30 a 07:00) -> Capturas de 00:30 a 09:00 hrs
     else:
         turno = "3"
         
@@ -221,78 +218,90 @@ if modelos_seleccionados:
                         format_func=lambda x: f"{x} - {DEFECTOS_OP60[x]}" if x in DEFECTOS_OP60 else "Selecciona defecto...",
                         key=f"def_{modelo}_{i}"
                     )
-                    if cod_def:
-                        codigos_defectos_list.append(f"{cod_def} ({DEFECTOS_OP60[cod_def]})")
+                    codigos_defectos_list.append(cod_def)
 
-            # Cálculos automáticos de piezas
-            pzas_paso1 = t_paso1 * cap_pzas
-            pzas_paso2 = t_paso2 * cap_pzas
-            pzas_rech = t_rech * cap_pzas
-            total_tarimas = t_paso1 + t_paso2 + t_rech
-            total_piezas = total_tarimas * cap_pzas
+            # 1. Generar fila para Aceptadas en 1ra Revisión
+            if t_paso1 > 0:
+                registros_capturados.append({
+                    "Fecha": fecha_reg,
+                    "Turno": turno_reg,
+                    "Inspector": inspector,
+                    "#Parte": modelo,
+                    "Estatus": "1ra Revisión",
+                    "Pzas_x_Pallet": cap_pzas,
+                    "Tarimas": t_paso1,
+                    "Total_Piezas": t_paso1 * cap_pzas,
+                    "Codigo_Defecto": "N/A"
+                })
 
-            st.caption(
-                f"📊 **Resumen {modelo}:** {total_tarimas} tarimas equivalen a **{total_piezas} pzas** "
-                f"({pzas_paso1} pzas 1ra rev | {pzas_paso2} pzas 2da rev | {pzas_rech} pzas rechazadas)"
-            )
+            # 2. Generar fila para Aceptadas en 2da Revisión
+            if t_paso2 > 0:
+                registros_capturados.append({
+                    "Fecha": fecha_reg,
+                    "Turno": turno_reg,
+                    "Inspector": inspector,
+                    "#Parte": modelo,
+                    "Estatus": "2da Revisión",
+                    "Pzas_x_Pallet": cap_pzas,
+                    "Tarimas": t_paso2,
+                    "Total_Piezas": t_paso2 * cap_pzas,
+                    "Codigo_Defecto": "N/A"
+                })
 
-            registros_capturados.append({
-                "Fecha": fecha_reg,
-                "Turno": turno_reg,
-                "Inspector": inspector,
-                "#Parte": modelo,
-                "Pzas_x_Pallet": cap_pzas,
-                "Tarimas_1ra_Pass": t_paso1,
-                "Pzas_1ra_Pass": pzas_paso1,
-                "Tarimas_2da_Pass": t_paso2,
-                "Pzas_2da_Pass": pzas_paso2,
-                "Tarimas_Rechazadas": t_rech,
-                "Pzas_Rechazadas": pzas_rech,
-                "Total_Tarimas": total_tarimas,
-                "Total_Piezas": total_piezas,
-                "Codigos_Defectos": ", ".join(codigos_defectos_list) if codigos_defectos_list else "N/A"
-            })
+            # 3. Generar UNA FILA INDIVIDUAL POR CADA TARIMA RECHAZADA
+            if t_rech > 0:
+                for cod in codigos_defectos_list:
+                    def_texto = f"{cod} - {DEFECTOS_OP60[cod]}" if cod in DEFECTOS_OP60 else "Sin seleccionar"
+                    registros_capturados.append({
+                        "Fecha": fecha_reg,
+                        "Turno": turno_reg,
+                        "Inspector": inspector,
+                        "#Parte": modelo,
+                        "Estatus": "Rechazado",
+                        "Pzas_x_Pallet": cap_pzas,
+                        "Tarimas": 1,
+                        "Total_Piezas": cap_pzas,
+                        "Codigo_Defecto": def_texto
+                    })
 
     # 4. RESUMEN Y GUARDADO
     st.divider()
     st.subheader("4. Confirmar y Registrar en Google Sheets")
 
+    defectos_pendientes = any(
+        r["Estatus"] == "Rechazado" and r["Codigo_Defecto"] == "Sin seleccionar" 
+        for r in registros_capturados
+    )
+
     if inspector == "Seleccionar..." or not inspector.strip():
         st.error("⚠️ Por favor selecciona tu nombre de inspector en la Sección 1 antes de guardar.")
+    elif defectos_pendientes:
+        st.error("⚠️ Asigna el código de defecto para cada una de las tarimas rechazadas antes de enviar.")
+    elif len(registros_capturados) == 0:
+        st.info("💡 Ingresa al menos 1 tarima (pasada o rechazada) para poder realizar el registro.")
     else:
         df_resumen = pd.DataFrame(registros_capturados)
-        st.dataframe(
-            df_resumen[["#Parte", "Total_Tarimas", "Total_Piezas", "Tarimas_1ra_Pass", "Tarimas_2da_Pass", "Tarimas_Rechazadas", "Codigos_Defectos"]], 
-            use_container_width=True
-        )
+        st.dataframe(df_resumen, use_container_width=True)
 
         if st.button("🚀 Registrar Liberaciones", type="primary", use_container_width=True):
             try:
                 filas_insertar = []
-                timestamp_ahora = datetime.now(ZONA_HORARIA_MX).strftime("%d/%m/%Y %H:%M:%S")
-
                 for r in registros_capturados:
                     fila = [
                         r["Fecha"],
                         r["Turno"],
                         r["Inspector"],
                         r["#Parte"],
+                        r["Estatus"],
                         r["Pzas_x_Pallet"],
-                        r["Tarimas_1ra_Pass"],
-                        r["Pzas_1ra_Pass"],
-                        r["Tarimas_2da_Pass"],
-                        r["Pzas_2da_Pass"],
-                        r["Tarimas_Rechazadas"],
-                        r["Pzas_Rechazadas"],
-                        r["Total_Tarimas"],
+                        r["Tarimas"],
                         r["Total_Piezas"],
-                        r["Codigos_Defectos"],
-                        timestamp_ahora
+                        r["Codigo_Defecto"]
                     ]
                     filas_insertar.append(fila)
 
                 sheet.append_rows(filas_insertar)
                 st.balloons()
-                st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
+                st.success("✅ ¡Registros guardados exitosamente en Google Sheets!")
             except Exception as e:
                 st.error(f"Error al guardar los datos: {e}")
