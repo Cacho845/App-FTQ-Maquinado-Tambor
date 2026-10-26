@@ -31,10 +31,13 @@ CAPACIDAD_PALLET = {
 
 INSPECTORES = [
     "Seleccionar...",
+    "Eladio García",
+    "Valeria Neria",
+    "Sebastián",
     "Armando Rosales",
-    "Juan Pérez",
-    "Carlos López",
-    "Inspector 3",
+    "Alexis Hernández",
+    "Itzel Juárez",
+    "Berenice Hernández",
     "Otro"
 ]
 
