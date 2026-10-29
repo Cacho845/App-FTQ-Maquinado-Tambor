@@ -220,7 +220,7 @@ if modelos_seleccionados:
                     )
                     codigos_defectos_list.append(cod_def)
 
-            # 1. Fila para Aceptadas en 1ra Revisión (Piezas asignadas a 1era revisión)
+            # 1. Fila para Aceptadas en 1ra Revisión
             if t_paso1 > 0:
                 registros_capturados.append({
                     "Fecha": fecha_reg,
@@ -230,13 +230,29 @@ if modelos_seleccionados:
                     "Pzas_x_Pallet": cap_pzas,
                     "Tarimas": t_paso1,
                     "1era revisión": t_paso1 * cap_pzas,
-                    "Rechazado": 0,
                     "2da revisión": 0,
+                    "Rechazado": 0,
                     "Descripcion_Defecto": "N/A",
                     "Cod_Defecto": "N/A"
                 })
 
-            # 2. FILAS INDIVIDUALES POR CADA TARIMA RECHAZADA (Piezas asignadas a Rechazado)
+            # 2. Fila para Aceptadas en 2da Revisión
+            if t_paso2 > 0:
+                registros_capturados.append({
+                    "Fecha": fecha_reg,
+                    "Turno": turno_reg,
+                    "Inspector": inspector,
+                    "#Parte": modelo,
+                    "Pzas_x_Pallet": cap_pzas,
+                    "Tarimas": t_paso2,
+                    "1era revisión": 0,
+                    "2da revisión": t_paso2 * cap_pzas,
+                    "Rechazado": 0,
+                    "Descripcion_Defecto": "N/A",
+                    "Cod_Defecto": "N/A"
+                })
+
+            # 3. FILAS INDIVIDUALES POR CADA TARIMA RECHAZADA
             if t_rech > 0:
                 for cod in codigos_defectos_list:
                     cod_num = cod if cod else "Sin seleccionar"
@@ -249,27 +265,11 @@ if modelos_seleccionados:
                         "Pzas_x_Pallet": cap_pzas,
                         "Tarimas": 1,
                         "1era revisión": 0,
-                        "Rechazado": cap_pzas,
                         "2da revisión": 0,
+                        "Rechazado": cap_pzas,
                         "Descripcion_Defecto": desc_def,
                         "Cod_Defecto": cod_num
                     })
-
-            # 3. Fila para Aceptadas en 2da Revisión (Piezas asignadas a 2da revisión)
-            if t_paso2 > 0:
-                registros_capturados.append({
-                    "Fecha": fecha_reg,
-                    "Turno": turno_reg,
-                    "Inspector": inspector,
-                    "#Parte": modelo,
-                    "Pzas_x_Pallet": cap_pzas,
-                    "Tarimas": t_paso2,
-                    "1era revisión": 0,
-                    "Rechazado": 0,
-                    "2da revisión": t_paso2 * cap_pzas,
-                    "Descripcion_Defecto": "N/A",
-                    "Cod_Defecto": "N/A"
-                })
 
     # 4. RESUMEN Y GUARDADO
     st.divider()
@@ -302,8 +302,8 @@ if modelos_seleccionados:
                         r["Pzas_x_Pallet"],
                         r["Tarimas"],
                         r["1era revisión"],
-                        r["Rechazado"],
                         r["2da revisión"],
+                        r["Rechazado"],
                         r["Descripcion_Defecto"],
                         r["Cod_Defecto"]
                     ]
