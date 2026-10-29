@@ -220,37 +220,23 @@ if modelos_seleccionados:
                     )
                     codigos_defectos_list.append(cod_def)
 
-            # 1. Generar fila para Aceptadas en 1ra Revisión
+            # 1. Fila para Aceptadas en 1ra Revisión (Piezas asignadas a 1era revisión)
             if t_paso1 > 0:
                 registros_capturados.append({
                     "Fecha": fecha_reg,
                     "Turno": turno_reg,
                     "Inspector": inspector,
                     "#Parte": modelo,
-                    "Estatus": "1ra Revisión",
                     "Pzas_x_Pallet": cap_pzas,
                     "Tarimas": t_paso1,
-                    "Total_Piezas": t_paso1 * cap_pzas,
+                    "1era revisión": t_paso1 * cap_pzas,
+                    "Rechazado": 0,
+                    "2da revisión": 0,
                     "Descripcion_Defecto": "N/A",
                     "Cod_Defecto": "N/A"
                 })
 
-            # 2. Generar fila para Aceptadas en 2da Revisión
-            if t_paso2 > 0:
-                registros_capturados.append({
-                    "Fecha": fecha_reg,
-                    "Turno": turno_reg,
-                    "Inspector": inspector,
-                    "#Parte": modelo,
-                    "Estatus": "2da Revisión",
-                    "Pzas_x_Pallet": cap_pzas,
-                    "Tarimas": t_paso2,
-                    "Total_Piezas": t_paso2 * cap_pzas,
-                    "Descripcion_Defecto": "N/A",
-                    "Cod_Defecto": "N/A"
-                })
-
-            # 3. Generar UNA FILA INDIVIDUAL POR CADA TARIMA RECHAZADA
+            # 2. FILAS INDIVIDUALES POR CADA TARIMA RECHAZADA (Piezas asignadas a Rechazado)
             if t_rech > 0:
                 for cod in codigos_defectos_list:
                     cod_num = cod if cod else "Sin seleccionar"
@@ -260,20 +246,37 @@ if modelos_seleccionados:
                         "Turno": turno_reg,
                         "Inspector": inspector,
                         "#Parte": modelo,
-                        "Estatus": "Rechazado",
                         "Pzas_x_Pallet": cap_pzas,
                         "Tarimas": 1,
-                        "Total_Piezas": cap_pzas,
+                        "1era revisión": 0,
+                        "Rechazado": cap_pzas,
+                        "2da revisión": 0,
                         "Descripcion_Defecto": desc_def,
                         "Cod_Defecto": cod_num
                     })
+
+            # 3. Fila para Aceptadas en 2da Revisión (Piezas asignadas a 2da revisión)
+            if t_paso2 > 0:
+                registros_capturados.append({
+                    "Fecha": fecha_reg,
+                    "Turno": turno_reg,
+                    "Inspector": inspector,
+                    "#Parte": modelo,
+                    "Pzas_x_Pallet": cap_pzas,
+                    "Tarimas": t_paso2,
+                    "1era revisión": 0,
+                    "Rechazado": 0,
+                    "2da revisión": t_paso2 * cap_pzas,
+                    "Descripcion_Defecto": "N/A",
+                    "Cod_Defecto": "N/A"
+                })
 
     # 4. RESUMEN Y GUARDADO
     st.divider()
     st.subheader("4. Confirmar y Registrar en Google Sheets")
 
     defectos_pendientes = any(
-        r["Estatus"] == "Rechazado" and (r["Cod_Defecto"] == "Sin seleccionar" or r["Descripcion_Defecto"] == "Sin seleccionar")
+        r["Rechazado"] > 0 and (r["Cod_Defecto"] == "Sin seleccionar" or r["Descripcion_Defecto"] == "Sin seleccionar")
         for r in registros_capturados
     )
 
@@ -296,10 +299,11 @@ if modelos_seleccionados:
                         r["Turno"],
                         r["Inspector"],
                         r["#Parte"],
-                        r["Estatus"],
                         r["Pzas_x_Pallet"],
                         r["Tarimas"],
-                        r["Total_Piezas"],
+                        r["1era revisión"],
+                        r["Rechazado"],
+                        r["2da revisión"],
                         r["Descripcion_Defecto"],
                         r["Cod_Defecto"]
                     ]
